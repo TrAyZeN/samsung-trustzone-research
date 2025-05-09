@@ -36,7 +36,11 @@ public class MCLFLoader extends AbstractLibrarySupportLoader {
     public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider) throws IOException {
         BinaryReader reader = new BinaryReader(provider, true);
         if (reader.readNextAsciiString(4).equals("MCLF"))
-            return List.of(new LoadSpec(this, 0, new LanguageCompilerSpecPair("ARM:LE:32:v7", "default"), true));
+            return List.of(
+                new LoadSpec(this, 0, new LanguageCompilerSpecPair("ARM:LE:32:v7", "default"), true),
+                new LoadSpec(this, 0, new LanguageCompilerSpecPair("AARCH64:LE:64:v8A", "default"), true),
+                new LoadSpec(this, 0, new LanguageCompilerSpecPair("AARCH64:LE:32:v8A", "default"), true)
+            );
         return new ArrayList<>();
     }
 
@@ -47,23 +51,26 @@ public class MCLFLoader extends AbstractLibrarySupportLoader {
         FlatProgramAPI api = new FlatProgramAPI(program, monitor);
 
         header = new MCLFHeader(api, reader);
+        Address textVa = api.toAddr(header.textStart);
+        Address dataVa = api.toAddr(header.dataStart);
+        Address entry = api.toAddr(header.entry);
 
         InputStream input = provider.getInputStream(0);
-        createSegment(api, input, ".text", header.textVa, header.textLen, true, false, true);
-        createSegment(api, input, ".data", header.dataVa, header.dataLen, true, true, false);
-        createSegment(api, null, ".bss", header.dataVa.add(header.dataLen), header.bssLen, true, true, false);
+        createSegment(api, input, ".text", textVa, header.textLen, true, false, true);
+        createSegment(api, input, ".data", dataVa, header.dataLen, true, true, false);
+        createSegment(api, null, ".bss", dataVa.add(header.dataLen), header.bssLen, true, true, false);
 
-        api.addEntryPoint(header.entry);
-        api.createFunction(header.entry, "_entry");
+        api.addEntryPoint(entry);
+        api.createFunction(entry, "_entry");
 
         try {
-            api.createLabel(header.textVa.add(0x8c), "tlApiLibEntry", true);
+            api.createLabel(textVa.add(0x8c), "tlApiLibEntry", true);
         } catch (Exception e) {
             Msg.error(this, e.getMessage());
         }
 
         try {
-            DataUtilities.createData(program, header.textVa, header.toDataType(), -1, false,
+            DataUtilities.createData(program, textVa, header.toDataType(), -1, false,
                     ClearDataMode.CLEAR_ALL_UNDEFINED_CONFLICT_DATA);
         } catch (CodeUnitInsertionException e) {
             Msg.error(this, e.getMessage());
