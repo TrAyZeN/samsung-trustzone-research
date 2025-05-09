@@ -26,6 +26,7 @@ import ghidra.util.task.TaskMonitor;
 
 public class MCLFLoader extends AbstractLibrarySupportLoader {
     public MCLFHeader header;
+    public MCLFTextHeader textHeader;
 
     @Override
     public String getName() {
@@ -51,6 +52,8 @@ public class MCLFLoader extends AbstractLibrarySupportLoader {
         FlatProgramAPI api = new FlatProgramAPI(program, monitor);
 
         header = new MCLFHeader(api, reader);
+        textHeader = new MCLFTextHeader(api, reader);
+
         Address textVa = api.toAddr(header.textStart);
         Address dataVa = api.toAddr(header.dataStart);
         Address entry = api.toAddr(header.entry);
@@ -71,6 +74,13 @@ public class MCLFLoader extends AbstractLibrarySupportLoader {
 
         try {
             DataUtilities.createData(program, textVa, header.toDataType(), -1, false,
+                    ClearDataMode.CLEAR_ALL_UNDEFINED_CONFLICT_DATA);
+        } catch (CodeUnitInsertionException e) {
+            Msg.error(this, e.getMessage());
+        }
+
+        try {
+            DataUtilities.createData(program, textVa.add(0x80), textHeader.toDataType(), -1, false,
                     ClearDataMode.CLEAR_ALL_UNDEFINED_CONFLICT_DATA);
         } catch (CodeUnitInsertionException e) {
             Msg.error(this, e.getMessage());
