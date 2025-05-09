@@ -59,7 +59,12 @@ def get_api_name_type(api_number):
 
 def xrefs_to_lib_entry():
     symbolTable = currentProgram.getSymbolTable()
-    entry = symbolTable.getSymbol("tlApiLibEntry")
+
+    entry = next(symbolTable.getSymbols("tlApiLibEntry"))
+    if entry is None:
+        print("Missing tlApiLibEntry symbol")
+        exit(1)
+
     xrefs = entry.getReferences()
     for xref in xrefs:
         if xref.getReferenceType() == RefType.READ:
